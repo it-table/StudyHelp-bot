@@ -221,3 +221,10 @@ database.db
 *.db
 *.sqlite3
 
+# Дополнительно для вашего проекта
+database.db
+config.py
+secrets.py
+
+# Telegram session files
+*.session
