@@ -6,7 +6,6 @@ import psycopg2
 from flask_cors import CORS
 from threading import Lock
 from urllib.parse import urlparse
-import sqlite3  # Добавлен импорт для SQLite
 
 app = Flask(__name__, template_folder='.')
 CORS(app)
@@ -14,74 +13,57 @@ CORS(app)
 # --- Config ---
 BOT_TOKEN = os.getenv("BOT_TOKEN", "your_bot_token")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "your_admin_chat_id")
-DATABASE_URL = os.getenv("DATABASE_URL")  # если пусто → используем SQLite
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Блокировка для избежания конфликтов
 booking_lock = Lock()
 
-# --- DB connection ---
+# --- DB connection (только PostgreSQL) ---
 def get_db_connection():
-    if DATABASE_URL:  # PostgreSQL
-        # Heroku-style fix
-        database_url = DATABASE_URL
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-        parsed_url = urlparse(database_url)
-        conn = psycopg2.connect(
-            database=parsed_url.path[1:],
-            user=parsed_url.username,
-            password=parsed_url.password,
-            host=parsed_url.hostname,
-            port=parsed_url.port
-        )
-        return conn
-    else:  # SQLite
-        conn = sqlite3.connect("bookings.db")
-        conn.row_factory = sqlite3.Row
-        return conn
+    """Подключение только к PostgreSQL"""
+    if not DATABASE_URL:
+        raise RuntimeError('DATABASE_URL не задан. Укажите URL PostgreSQL в переменной окружения.')
+    
+    # Heroku-style fix
+    database_url = DATABASE_URL
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    parsed_url = urlparse(database_url)
+    conn = psycopg2.connect(
+        database=parsed_url.path[1:],
+        user=parsed_url.username,
+        password=parsed_url.password,
+        host=parsed_url.hostname,
+        port=parsed_url.port
+    )
+    return conn
 
 def init_db():
+    """Инициализация только для PostgreSQL"""
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Универсальное создание таблицы
-    if DATABASE_URL:  # PostgreSQL
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS bookings (
-                id SERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                first_name TEXT,
-                last_name TEXT,
-                username TEXT,
-                subject TEXT NOT NULL,
-                service TEXT NOT NULL,
-                date TEXT NOT NULL,
-                time TEXT NOT NULL,
-                comment TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-    else:  # SQLite
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS bookings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                first_name TEXT,
-                last_name TEXT,
-                username TEXT,
-                subject TEXT NOT NULL,
-                service TEXT NOT NULL,
-                date TEXT NOT NULL,
-                time TEXT NOT NULL,
-                comment TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS bookings (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
+            username TEXT,
+            subject TEXT NOT NULL,
+            service TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time TEXT NOT NULL,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
-    # Создание индексов
     cur.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON bookings (user_id)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_date_time ON bookings (date, time)")
-
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_date ON bookings (date)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON bookings (created_at)")
+    
     conn.commit()
     conn.close()
 
@@ -93,13 +75,13 @@ def send_telegram_message(chat_id, text):
     if not BOT_TOKEN or not chat_id:
         print("Cannot send message: missing BOT_TOKEN or chat_id")
         return None
-
+        
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     try:
         response = requests.post(url, json={
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML"
+            'chat_id': chat_id, 
+            'text': text,
+            'parse_mode': 'HTML'
         }, timeout=10)
         return response.json()
     except Exception as e:
@@ -111,20 +93,13 @@ def is_time_occupied(date, time, exclude_booking_id=None):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-
-        if DATABASE_URL:  # PostgreSQL
-            if exclude_booking_id:
-                cur.execute("SELECT id FROM bookings WHERE date = %s AND time = %s AND id != %s",
-                           (date, time, exclude_booking_id))
-            else:
-                cur.execute("SELECT id FROM bookings WHERE date = %s AND time = %s", (date, time))
-        else:  # SQLite
-            if exclude_booking_id:
-                cur.execute("SELECT id FROM bookings WHERE date=? AND time=? AND id!=?",
-                           (date, time, exclude_booking_id))
-            else:
-                cur.execute("SELECT id FROM bookings WHERE date=? AND time=?", (date, time))
-
+        
+        if exclude_booking_id:
+            cur.execute("SELECT id FROM bookings WHERE date = %s AND time = %s AND id != %s", 
+                       (date, time, exclude_booking_id))
+        else:
+            cur.execute("SELECT id FROM bookings WHERE date = %s AND time = %s", (date, time))
+            
         exists = cur.fetchone()
         conn.close()
         return bool(exists)
@@ -145,8 +120,6 @@ def format_date(date_str):
 def health():
     return 'ok', 200
 
-# ... (остальной код без изменений) ...
-
 @app.route('/api/available-times', methods=['GET'])
 def get_available_times():
     """Теперь просто валидирует дату, время вводится свободно"""
@@ -159,13 +132,13 @@ def get_available_times():
         try:
             selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             today = datetime.now().date()
-
+            
             if selected_date < today:
                 return jsonify({'valid': False, 'message': 'Нельзя выбрать прошедшую дату'})
-
+                
             if selected_date > today + timedelta(days=30):
                 return jsonify({'valid': False, 'message': 'Запись доступна только на 30 дней вперед'})
-
+                
         except ValueError:
             return jsonify({'error': 'Invalid date format'}), 400
 
@@ -175,43 +148,6 @@ def get_available_times():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route("/api/validate-time", methods=["POST"])
-def validate_time():
-    """Валидация времени"""
-    try:
-        data = request.json
-        time_str = data.get('time')
-        date_str = data.get('date')
-
-        if not time_str:
-            return jsonify({'valid': False, 'error': 'Введите время'})
-
-        # Проверка формата времени
-        try:
-            datetime.strptime(time_str, '%H:%M')
-        except ValueError:
-            return jsonify({'valid': False, 'error': 'Неверный формат времени. Используйте ЧЧ:MM'})
-
-        # Для сегодняшней даты проверяем чтобы время не было в прошлом
-        if date_str:
-            try:
-                selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-                today = datetime.now().date()
-
-                if selected_date == today:
-                    current_time = datetime.now().time()
-                    selected_time = datetime.strptime(time_str, '%H:%M').time()
-
-                    if selected_time <= current_time:
-                        return jsonify({'valid': False, 'error': 'Нельзя выбрать прошедшее время'})
-            except:
-                pass
-
-        return jsonify({'valid': True, 'message': 'Time is valid'})
-
-    except Exception as e:
-        return jsonify({'valid': False, 'error': str(e)})
-
 @app.route("/api/book", methods=["POST"])
 def book_service():
     """Создание бронирования со свободным вводом времени"""
@@ -219,7 +155,7 @@ def book_service():
         data = request.json
         user_data = data.get('user', {})
         booking_data = data.get('booking', {})
-
+        
         subject = booking_data.get("subject")
         service = booking_data.get("service")
         date = booking_data.get("date")
@@ -259,38 +195,22 @@ def book_service():
         # Save to database (БЕЗ проверки занятости!)
         conn = get_db_connection()
         cur = conn.cursor()
-
-        if DATABASE_URL:
-            cur.execute("""
-                INSERT INTO bookings (user_id, first_name, last_name, username, subject, service, date, time, comment)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                user_id,
-                user_data.get('first_name', ''),
-                user_data.get('last_name', ''),
-                user_data.get('username', ''),
-                subject,
-                service,
-                date,
-                time,
-                comment
-            ))
-        else:
-            cur.execute("""
-                INSERT INTO bookings (user_id, first_name, last_name, username, subject, service, date, time, comment)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                user_id,
-                user_data.get('first_name', ''),
-                user_data.get('last_name', ''),
-                user_data.get('username', ''),
-                subject,
-                service,
-                date,
-                time,
-                comment
-            ))
-
+        
+        cur.execute("""
+            INSERT INTO bookings (user_id, first_name, last_name, username, subject, service, date, time, comment)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            user_id,
+            user_data.get('first_name', ''),
+            user_data.get('last_name', ''),
+            user_data.get('username', ''),
+            subject,
+            service,
+            date,
+            time,
+            comment
+        ))
+            
         conn.commit()
         conn.close()
 
@@ -320,6 +240,126 @@ def book_service():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/user-bookings", methods=["GET"])
+def get_user_bookings():
+    """Получение бронирований пользователя"""
+    try:
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'User ID is required'}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT id, subject, service, date, time, comment, created_at 
+            FROM bookings WHERE user_id = %s ORDER BY date DESC, time DESC
+        """, (user_id,))
+            
+        rows = cur.fetchall()
+        conn.close()
+        
+        # Convert to list of dictionaries
+        bookings = []
+        today = datetime.now().date()
+        
+        for row in rows:
+            booking = {
+                'id': row[0],
+                'subject': row[1],
+                'service': row[2],
+                'date': row[3],
+                'time': row[4],
+                'comment': row[5],
+                'created_at': row[6].isoformat() if hasattr(row[6], 'isoformat') else str(row[6])
+            }
+            
+            # Add can_modify flag
+            try:
+                booking_date = datetime.strptime(booking['date'], '%Y-%m-%d').date()
+                booking['can_modify'] = booking_date >= today
+            except:
+                booking['can_modify'] = False
+                
+            bookings.append(booking)
+            
+        return jsonify(bookings)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/update-booking", methods=["POST"])
+def update_booking():
+    """Обновление бронирования БЕЗ проверки занятости"""
+    try:
+        data = request.json or {}
+        booking_id = data.get("booking_id")
+        user_id = data.get("user_id")
+        updates = data.get("updates", {})
+        
+        if not all([booking_id, user_id, updates]):
+            return jsonify({"error": "Booking ID and User ID required"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verify booking belongs to user
+        cur.execute("SELECT id FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
+            
+        if not cur.fetchone():
+            conn.close()
+            return jsonify({"error": "Booking not found or access denied"}), 404
+
+        # Build update query (БЕЗ проверки занятости времени!)
+        set_clauses = []
+        params = []
+        
+        for field in ['subject', 'service', 'date', 'time', 'comment']:
+            if field in updates:
+                set_clauses.append(f"{field} = %s")
+                params.append(updates[field])
+        
+        if not set_clauses:
+            conn.close()
+            return jsonify({"error": "No fields to update"}), 400
+            
+        params.extend([booking_id, user_id])
+        
+        query = f"UPDATE bookings SET {', '.join(set_clauses)} WHERE id = %s AND user_id = %s"
+            
+        cur.execute(query, params)
+        conn.commit()
+        conn.close()
+        
+        return jsonify({"success": True, "message": "Booking updated successfully"})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/cancel-booking", methods=["POST"])
+def cancel_booking():
+    """Отмена бронирования"""
+    try:
+        data = request.json or {}
+        booking_id = data.get("booking_id")
+        user_id = data.get("user_id")
+        
+        if not all([booking_id, user_id]):
+            return jsonify({"error": "Booking ID and User ID required"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verify booking belongs to user before deleting
+        cur.execute("DELETE FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
+            
+        conn.commit()
+        conn.close()
+        
+        return jsonify({"success": True, "message": "Booking cancelled successfully"})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Serve static files
 @app.route("/")
@@ -331,5 +371,5 @@ def serve_static(path):
     return send_from_directory('.', path)
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.environ.get("PORT", 5000))
     app.run(debug=True, host="0.0.0.0", port=port)
