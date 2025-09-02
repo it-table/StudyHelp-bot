@@ -1,0 +1,461 @@
+/* Reset и базовые стили */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Josefin Sans', sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #FFF;
+}
+
+/* Контейнер */
+.container-fluid {
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Улучшенный анимированный фон */
+.background {
+  background: linear-gradient(135deg,
+    #FF3B60 0%,
+    #7B2CFF 40%,
+    #2D1B69 70%,
+    #16142A 100%);
+  background-size: 300% 300%;
+  animation: Gradient 15s ease infinite;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  opacity: 0.95;
+}
+
+/* Затемнение для улучшения читаемости */
+.background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 1;
+}
+
+/* Шапка */
+header {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 2;
+}
+
+/* Логотип */
+.logo {
+  width: 60px;
+  height: 60px;
+  background: rgba(239, 238, 245, 0.95);
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-30deg);
+  margin-bottom: 40px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.logo span {
+  color: #7B2CFF;
+  font-size: 2.2em;
+  font-weight: bold;
+  transform: rotate(30deg);
+}
+
+/* Контент заголовка */
+.header-content {
+  text-align: center;
+  color: #FFFFFF;
+  max-width: 90%;
+  margin: 0 auto;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.header-content h1 {
+  text-transform: uppercase;
+  font-size: 2.8em;
+  letter-spacing: 2px;
+  margin-bottom: 25px;
+  font-weight: 800;
+  background: linear-gradient(45deg, #FFFFFF, #E0E0FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-content p {
+  font-size: 1.2em;
+  line-height: 1.7;
+  margin: 25px 0;
+  opacity: 0.95;
+  font-weight: 400;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  padding: 15px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Контейнер кнопок */
+.buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 40px;
+  width: 100%;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Кнопки с улучшенной видимостью */
+.tg-button {
+  width: 100%;
+  padding: 18px 28px;
+  border: none;
+  border-radius: 15px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Josefin Sans', sans-serif;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.tg-button.primary {
+  background: linear-gradient(135deg, #EFEEF5, #DCDBEB);
+  color: #7B2CFF;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.tg-button.secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.tg-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+}
+
+.tg-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Анимация фона */
+@keyframes Gradient {
+  0% {
+    background-position: 0% 50%;
+    background-size: 300% 300%;
+  }
+  50% {
+    background-position: 100% 50%;
+    background-size: 400% 400%;
+  }
+  100% {
+    background-position: 0% 50%;
+    background-size: 300% 300%;
+  }
+}
+
+/* Медиа-запросы для адаптивности */
+@media (max-width: 480px) {
+  .header-content h1 {
+    font-size: 2.2em;
+  }
+
+  .header-content p {
+    font-size: 1.1em;
+    padding: 12px;
+  }
+
+  .logo {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 30px;
+  }
+
+  .logo span {
+    font-size: 1.9em;
+  }
+
+  .buttons-container {
+    max-width: 280px;
+    gap: 15px;
+  }
+
+  .tg-button {
+    padding: 16px 24px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .header-content h1 {
+    font-size: 2em;
+  }
+
+  .header-content p {
+    font-size: 1em;
+  }
+
+  .buttons-container {
+    max-width: 260px;
+  }
+}
+
+/* Адаптация для разных тем */
+@media (prefers-color-scheme: dark) {
+  .background {
+    opacity: 0.98;
+  }
+
+  .header-content p {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .tg-button.secondary {
+    background: rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Анимация для кнопок на главной странице */
+.buttons-container {
+  perspective: 1000px;
+}
+
+.tg-button {
+  transform-style: preserve-3d;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tg-button:hover {
+  transform: translateY(-4px) rotateX(5deg);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+}
+
+.tg-button:active {
+  transform: translateY(2px) rotateX(0deg);
+}
+
+/* Анимация появления контента */
+.header-content {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeInUp 1s ease-out 0.3s forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.logo {
+  opacity: 0;
+  transform: rotate(-45deg) scale(0.8);
+  animation: logoAppear 1s ease-out 0.1s forwards;
+}
+
+@keyframes logoAppear {
+  to {
+    opacity: 1;
+    transform: rotate(-30deg) scale(1);
+  }
+}
+/* Стиль для кнопки истории */
+.tg-button.history {
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.tg-button.history:hover {
+  background: linear-gradient(135deg, #5a6268, #343a40);
+}
+
+/* Стили для списка записей */
+.bookings-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-top: 20px;
+}
+
+.booking-item {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-left: 4px solid #7B2CFF;
+}
+
+.booking-item.past {
+  border-left-color: #6c757d;
+  opacity: 0.7;
+}
+
+.booking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.booking-subject {
+  font-weight: 600;
+  color: #333;
+  font-size: 1.1em;
+}
+
+.booking-service {
+  background: #7B2CFF;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.9em;
+}
+
+.booking-details {
+  margin-bottom: 10px;
+}
+
+.booking-date {
+  color: #666;
+  font-size: 0.95em;
+  margin-bottom: 5px;
+}
+
+.booking-comment {
+  color: #888;
+  font-style: italic;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+.booking-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.edit-btn, .cancel-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.edit-btn {
+  background: #28a745;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #218838;
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #c82333;
+}
+
+.edit-btn:disabled, .cancel-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.no-bookings {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+/* Кнопки в модальном редактирования */
+.edit-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.edit-buttons .submit-btn {
+  flex: 2;
+}
+
+.edit-buttons .cancel-btn {
+  flex: 1;
+  background: #dc3545;
+}
+
+.edit-buttons .cancel-btn:hover {
+  background: #c82333;
+}
+
+/* Адаптивность */
+@media (max-width: 480px) {
+  .booking-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .booking-actions {
+    flex-direction: column;
+  }
+
+  .edit-buttons {
+    flex-direction: column;
+  }
+}
+/* Стиль для кнопки истории */
+.tg-button.history {
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.tg-button.history:hover {
+  background: linear-gradient(135deg, #5a6268, #343a40);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+}
+
+.tg-button.history:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}

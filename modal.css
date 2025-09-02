@@ -1,0 +1,573 @@
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
+  pointer-events: none;
+}
+
+.modal.show {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  transition: all 0.4s ease-in-out;
+  z-index: 1000;
+}
+
+.modal.show .modal-backdrop {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  opacity: 0;
+  transition: all 0.4s ease-in-out;
+  z-index: 1001;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modal.show .modal-content {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.close-modal {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+  color: #591BC5;
+  background: none;
+  border: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease, color 0.3s ease;
+  z-index: 1002;
+}
+
+.close-modal:hover {
+  transform: rotate(90deg);
+  color: #FF3B60;
+}
+
+.form-group {
+  margin-bottom: 20px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s ease-in-out;
+  position: relative;
+}
+
+.modal.show .form-group {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modal.show .form-group:nth-child(1) { transition-delay: 0.1s; }
+.modal.show .form-group:nth-child(2) { transition-delay: 0.15s; }
+.modal.show .form-group:nth-child(3) { transition-delay: 0.2s; }
+.modal.show .form-group:nth-child(4) { transition-delay: 0.25s; }
+.modal.show .form-group:nth-child(5) { transition-delay: 0.3s; }
+.modal.show .submit-btn { transition-delay: 0.35s; }
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 16px;
+  font-family: 'Josefin Sans', sans-serif;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #7B2CFF;
+  box-shadow: 0 0 0 3px rgba(123, 44, 255, 0.1);
+}
+
+.form-group textarea {
+  height: 100px;
+  resize: vertical;
+  font-family: 'Josefin Sans', sans-serif;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 18px;
+  background: linear-gradient(135deg, #7B2CFF, #591BC5);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+  font-family: 'Josefin Sans', sans-serif;
+}
+
+.submit-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(91, 28, 197, 0.3);
+}
+
+.time-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.time-slot {
+  padding: 12px 8px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.time-slot:hover {
+  border-color: #7B2CFF;
+  transform: translateY(-2px);
+}
+
+.time-slot.selected {
+  background: #7B2CFF;
+  color: white;
+  border-color: #7B2CFF;
+  transform: scale(1.05);
+  box-shadow: 0 5px 15px rgba(91, 28, 197, 0.3);
+}
+
+.time-slot.current {
+  border-color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+}
+
+.time-slots-loading,
+.time-slots-error {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.time-slots-error {
+  color: #dc3545;
+  background: #f8d7da;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #7B2CFF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.validation-error {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
+  animation: slideInDown 0.3s ease-in-out;
+}
+
+.input-error {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5;
+}
+
+.input-success {
+  border-color: #28a745 !important;
+  background-color: #f8fff9;
+}
+
+.form-group.select-group select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 15px center;
+  background-size: 16px;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #333;
+  font-size: 1.6em;
+  font-weight: 700;
+}
+
+/* History modal styles */
+.bookings-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-top: 15px;
+  padding: 10px;
+}
+
+.booking-item {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 12px;
+  border-left: 4px solid #7B2CFF;
+  transition: all 0.3s ease;
+}
+
+.booking-item.past {
+  border-left-color: #6c757d;
+  opacity: 0.7;
+}
+
+.booking-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.booking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.booking-subject {
+  font-weight: 600;
+  color: #333;
+  font-size: 1.1em;
+  flex: 1;
+  min-width: 120px;
+}
+
+.booking-service {
+  background: #7B2CFF;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.8em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.booking-details {
+  margin-bottom: 10px;
+}
+
+.booking-date {
+  color: #666;
+  font-size: 0.9em;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.booking-comment {
+  color: #888;
+  font-style: italic;
+  font-size: 0.85em;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.booking-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.edit-btn, .cancel-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Josefin Sans', sans-serif;
+  font-weight: 500;
+  flex: 1;
+  min-width: 120px;
+}
+
+.edit-btn {
+  background: #28a745;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.edit-btn:disabled, .cancel-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.loading-bookings,
+.error-message,
+.no-bookings {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.error-message {
+  color: #dc3545;
+  background: #f8d7da;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.no-bookings h3 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.no-bookings p {
+  color: #666;
+  font-size: 0.95em;
+}
+
+.edit-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.edit-buttons .submit-btn {
+  flex: 2;
+  min-width: 160px;
+}
+
+.edit-buttons .cancel-btn {
+  flex: 1;
+  background: #dc3545;
+  min-width: 120px;
+}
+
+.edit-buttons .cancel-btn:hover {
+  background: #c82333;
+}
+
+/* Responsive styles */
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 20px;
+    width: 95%;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+
+  .modal.show .modal-content {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .time-slots {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .submit-btn {
+    padding: 16px;
+    font-size: 16px;
+  }
+
+  .modal-content h2 {
+    font-size: 1.4em;
+  }
+
+  .booking-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .booking-actions {
+    flex-direction: column;
+  }
+
+  .edit-btn, .cancel-btn {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .edit-buttons {
+    flex-direction: column;
+  }
+
+  .edit-buttons .submit-btn,
+  .edit-buttons .cancel-btn {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .modal-content {
+    padding: 15px;
+  }
+
+  .time-slots {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group {
+    margin-bottom: 15px;
+  }
+
+  .booking-item {
+    padding: 12px;
+  }
+
+  .booking-subject {
+    font-size: 1em;
+  }
+}
+
+/* Стили для окна "О нас" */
+.about-content {
+    line-height: 1.6;
+    color: #333;
+}
+
+.about-content p {
+    margin-bottom: 15px;
+}
+
+.about-content ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.about-content li {
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.about-content li:before {
+    content: "•";
+    color: #7B2CFF;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+}
+
+.about-content strong {
+    color: #7B2CFF;
+}
+
+/* Анимация для появления текста */
+.about-content p, .about-content ul {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.about-content p:nth-child(1) { animation-delay: 0.1s; }
+.about-content p:nth-child(2) { animation-delay: 0.2s; }
+.about-content p:nth-child(3) { animation-delay: 0.3s; }
+.about-content ul { animation-delay: 0.4s; }
+.about-content p:nth-child(5) { animation-delay: 0.5s; }
