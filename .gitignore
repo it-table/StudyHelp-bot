@@ -205,3 +205,19 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Ваши кастомные файлы
+database.db
+*.sqlite3
+
+# Файлы окружения (дополнительно)
+.env.local
+.env.production
+
+# Логи
+*.log
+
+# Файлы базы данных (если используются)
+*.db
+*.sqlite3
+
