@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Josefin+Sans" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/modal.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>StudyHelp</title>
+</head>
+<body>
+<div class="container-fluid">
+  <div class="background"></div>
+  <header>
+    <div class="logo"><span>S</span></div>
+    <section class="header-content">
+      <h1>StudyHelp</h1>
+      <p>StudyHelp — твой надежный помощник в учебе. Поможем разобраться с домашкой, подготовиться к пересдаче и понять любую тему. От стресса — к уверенности на «пять»!</p>
+
+      <div class="buttons-container">
+        <button class="tg-button primary" onclick="openBookingModal()">Сделать заказ</button>
+        <button class="tg-button history" onclick="openHistoryModal()">История заказов</button>
+        <button class="tg-button secondary" onclick="openAboutModal()">О нас</button>
+      </div>
+    </section>
+  </header>
+</div>
+
+<!-- Модальное окно истории -->
+<div id="historyModal" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeHistoryModal()">&times;</button>
+    <h2>Мои записи</h2>
+    <div id="bookingsList" class="bookings-list">
+      <div class="loading-spinner"></div>
+      <p>Загрузка ваших записей...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно редактирования -->
+<div id="editModal" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeEditModal()">&times;</button>
+    <h2>Редактировать запись</h2>
+    <form id="editForm">
+      <input type="hidden" id="editBookingId">
+      <input type="hidden" id="editOriginalTime">
+
+      <div class="form-group">
+        <label for="editSubject">Предмет помощи:</label>
+        <input type="text" id="editSubject" required>
+      </div>
+
+      <div class="form-group">
+        <label for="editService">Тип услуги:</label>
+        <select id="editService" required>
+    <option value="">-- Выберите услугу --</option>
+    <option value="Домашнее задание">Домашнее задание</option>
+    <option value="Контрольная/Самостоятельная работа">Контрольная/Самостоятельная работа</option>
+    <option value="Экзамен">Экзамен</option>
+    <option value="Консультация">Консультация</option>
+    <option value="Реферат/Курсовая">Реферат/Курсовая</option>
+  </select>
+      </div>
+
+      <div class="form-group">
+        <label for="editDate">Дата:</label>
+        <input type="date" id="editDate" required>
+      </div>
+
+      <div class="form-group">
+    <label for="editTimeInput">Время консультации:</label>
+    <input type="text" id="editTimeInput" required>
+    <div id="editTimeValidationMessage" class="validation-error"></div>
+    <small>Формат: ЧЧ:MM (например, 09:00, 14:30, 18:00)</small>
+</div>
+
+      <div class="form-group">
+        <label for="editComment">Дополнительные пожелания:</label>
+        <textarea id="editComment"></textarea>
+      </div>
+
+      <div class="edit-buttons">
+        <button type="submit" class="submit-btn">Сохранить изменения</button>
+        <button type="button" class="cancel-btn" onclick="triggerCancelFromEdit()">Отменить запись</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Модальное окно "О нас" -->
+<div id="aboutModal" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeAboutModal()">&times;</button>
+    <h2>О нас</h2>
+    <div class="about-content">
+      <p>🎓 Добро пожаловать!</p>
+      <p>Здесь вы найдёте надёжную помощь в учёбе — от домашних заданий и контрольных до курсовых и дипломов.</p>
+
+      <p>📌 Почему выбирают нас:</p>
+      <ul>
+        <li>Опыт работы с разными предметами и вузами.</li>
+        <li>Высокие оценки без лишних вопросов от преподавателей.</li>
+        <li>Индивидуальный подход к каждому заказу.</li>
+      </ul>
+
+      <p>Мы делаем всё качественно и в срок, чтобы вы могли сосредоточиться на главном и быть уверены в результате.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно бронирования -->
+<div id="bookingModal" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="close-modal" onclick="closeModal()">&times;</button>
+    <h2>Запись на услугу</h2>
+    <form id="bookingForm">
+      <div class="form-group">
+        <label for="subject">Предмет помощи:</label>
+        <input type="text" id="subject" placeholder="Например: Мат.анализ, Программирование..." required>
+      </div>
+
+      <div class="form-group select-group">
+        <label for="service">Тип услуги:</label>
+        <select id="service" required>
+  <option value="">-- Выберите услугу --</option>
+  <option value="Домашнее задание">Домашнее задание</option>
+  <option value="Контрольная/Самостоятельная работа">Контрольная/Самостоятельная работа</option>
+  <option value="Экзамен">Экзамен</option>
+  <option value="Консультация">Консультация</option>
+  <option value="Реферат/Курсовая">Реферат/Курсовая</option>
+</select>
+
+      </div>
+
+      <div class="form-group">
+        <label for="date">Дата:</label>
+        <input type="date" id="date" required>
+      </div>
+
+      <div class="form-group">
+          <label for="timeInput">Введите время консультации:</label>
+          <input type="text" id="timeInput" placeholder="Например: 14:30" required
+                 pattern="[0-9]{2}:[0-9]{2}">
+          <div id="timeValidationMessage" class="validation-error"></div>
+          <small>Формат: ЧЧ:MM (например, 09:00, 14:30, 18:00)</small>
+      </div>
+
+      <div class="form-group">
+        <label for="comment">Дополнительные пожелания:</label>
+        <textarea id="comment" placeholder="Опишите вашу задачу, тему или конкретные вопросы..."></textarea>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">Записаться</button>
+    </form>
+  </div>
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+// Telegram WebApp initialization
+let tg = window.Telegram.WebApp;
+let isModalOpen = false;
+let userBookings = [];
+let selectedBookingId = null;
+let pendingCancelId = null;
+
+tg.expand();
+tg.enableClosingConfirmation();
+
+// handle popup result (confirm/cancel)
+tg.onEvent('popupClosed', function(e) {
+    if (e && e.button_id === 'confirm_cancel' && pendingCancelId) {
+        const user = getUserData();
+        if (!user.id) {
+            tg.showAlert("Не удалось определить пользователя Telegram.");
+            pendingCancelId = null;
+            return;
+        }
+        cancelBookingDirect(pendingCancelId, user.id);
+        pendingCancelId = null;
+    }
+});
+
+// Modal functions
+function openBookingModal() {
+    closeHistoryModal();
+    closeEditModal();
+
+    const modal = document.getElementById('bookingModal');
+    modal.classList.add('show');
+    isModalOpen = true;
+    document.body.style.overflow = 'hidden';
+
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('date');
+    dateInput.min = today;
+    dateInput.value = '';
+
+    // Очищаем поле времени
+    const timeInput = document.getElementById('timeInput');
+    timeInput.value = '';
+    timeInput.classList.remove('input-error', 'input-success');
+    document.getElementById('timeValidationMessage').textContent = '';
+
+    clearValidation();
+}
+
+function closeModal() {
+    const modal = document.getElementById('bookingModal');
+    modal.classList.remove('show');
+    isModalOpen = false;
+    document.body.style.overflow = '';
+}
+
+function openAboutModal() {
+    closeModal();
+    closeHistoryModal();
+    closeEditModal();
+
+    const modal = document.getElementById('aboutModal');
+    modal.classList.add('show');
+    isModalOpen = true;
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAboutModal() {
+    const modal = document.getElementById('aboutModal');
+    modal.classList.remove('show');
+    isModalOpen = false;
+    document.body.style.overflow = '';
+}
+
+function openHistoryModal() {
+    closeModal();
+    closeEditModal();
+
+    const modal = document.getElementById('historyModal');
+    modal.classList.add('show');
+    loadUserBookings();
+}
+
+function closeHistoryModal() {
+    const modal = document.getElementById('historyModal');
+    modal.classList.remove('show');
+}
+
+function openEditModal(bookingId) {
+    closeModal();
+    closeHistoryModal();
+
+    const booking = userBookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    document.getElementById('editBookingId').value = booking.id;
+    document.getElementById('editSubject').value = booking.subject;
+    document.getElementById('editService').value = booking.service;
+    document.getElementById('editDate').value = booking.date;
+    document.getElementById('editTimeInput').value = booking.time;
+    document.getElementById('editComment').value = booking.comment || '';
+    document.getElementById('editOriginalTime').value = booking.time;
+
+    // Очищаем сообщения валидации
+    document.getElementById('editTimeValidationMessage').textContent = '';
+    document.getElementById('editTimeInput').classList.remove('input-error', 'input-success');
+
+    const modal = document.getElementById('editModal');
+    modal.classList.add('show');
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('editModal');
+    modal.classList.remove('show');
+}
+
+function clearValidation() {
+    document.querySelectorAll('.validation-error').forEach(el => el.remove());
+    document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    document.querySelectorAll('.input-success').forEach(el => el.classList.remove('input-success'));
+}
+
+// User bookings functions
+async function loadUserBookings() {
+    const container = document.getElementById('bookingsList');
+    const userData = getUserData();
+
+    if (!userData.id) {
+        container.innerHTML = '<div class="error-message">Не удалось загрузить данные пользователя</div>';
+        return;
+    }
+
+    try {
+        container.innerHTML = '<div class="loading-bookings"><div class="loading-spinner"></div><p>Загрузка ваших записей...</p></div>';
+
+        const response = await fetch(`/api/user-bookings?user_id=${userData.id}`);
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        userBookings = data;
+
+        if (userBookings.length === 0) {
+            container.innerHTML = `
+                <div class="no-bookings">
+                    <h3>У вас пока нет записей</h3>
+                    <p>Запишитесь на первую консультацию!</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        userBookings.forEach(booking => {
+            const bookingDate = new Date(booking.date);
+            const formattedDate = bookingDate.toLocaleDateString('ru-RU');
+            const isPast = !booking.can_modify;
+
+            html += `
+                <div class="booking-item ${isPast ? 'past' : ''}">
+                    <div class="booking-header">
+                        <div class="booking-subject">${booking.subject}</div>
+                        <div class="booking-service">${booking.service}</div>
+                    </div>
+                    <div class="booking-details">
+                        <div class="booking-date">📅 ${formattedDate} ⏰ ${booking.time}</div>
+                        ${booking.comment ? `<div class="booking-comment">💬 ${booking.comment}</div>` : ''}
+                    </div>
+                    ${!isPast ? `
+                    <div class="booking-actions">
+                        <button class="edit-btn" onclick="openEditModal(${booking.id})">✏️ Редактировать</button>
+                        <button class="cancel-btn" onclick="confirmCancelBooking(${booking.id})">❌ Отменить</button>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        container.innerHTML = `<div class="error-message">Ошибка загрузки: ${error.message}</div>`;
+    }
+}
+
+async function updateBooking(e) {
+    e.preventDefault();
+
+    const bookingId = document.getElementById('editBookingId').value;
+    const userData = getUserData();
+    const timeInput = document.getElementById('editTimeInput');
+
+    // Валидация времени
+    if (!validateTimeFormat(timeInput, 'editTimeValidationMessage')) {
+        tg.showAlert("Пожалуйста, введите время в правильном формате (ЧЧ:MM)");
+        return;
+    }
+
+    const formData = {
+        subject: document.getElementById('editSubject').value,
+        service: document.getElementById('editService').value,
+        date: document.getElementById('editDate').value,
+        time: timeInput.value,
+        comment: document.getElementById('editComment').value
+    };
+
+    try {
+        const response = await fetch('/api/update-booking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                booking_id: bookingId,
+                user_id: userData.id,
+                updates: formData
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            tg.showPopup({
+                title: "✅ Успешно!",
+                message: result.message,
+                buttons: [{type: "ok"}]
+            });
+            closeEditModal();
+            openHistoryModal();
+        } else {
+            throw new Error(result.message);
+        }
+
+    } catch (error) {
+        tg.showAlert("Ошибка при обновлении: " + error.message);
+    }
+}
+
+async function cancelBookingDirect(bookingId, userId) {
+    try {
+        const response = await fetch('/api/cancel-booking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                booking_id: bookingId,
+                user_id: userId
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            tg.showPopup({
+                title: "✅ Отменено!",
+                message: result.message,
+                buttons: [{type: "ok"}]
+            });
+            loadUserBookings();
+            closeEditModal();
+        } else {
+            throw new Error(result.message);
+        }
+
+    } catch (error) {
+        tg.showAlert("Ошибка при отмене: " + error.message);
+    }
+}
+
+function getUserData() {
+    if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) {
+        tg.showAlert("Ошибка авторизации. Перезайдите в бота.");
+        return { id: null };
+    }
+    return {
+        id: tg.initDataUnsafe.user.id,
+        first_name: tg.initDataUnsafe.user.first_name || '',
+        last_name: tg.initDataUnsafe.user.last_name || '',
+        username: tg.initDataUnsafe.user.username || ''
+    };
+}
+
+// Валидация формата времени
+function validateTimeFormat(input, validationMessageId = 'timeValidationMessage') {
+    const validationMessage = document.getElementById(validationMessageId);
+    const timePattern = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+    if (!input.value) {
+        validationMessage.textContent = '';
+        input.classList.remove('input-error', 'input-success');
+        return false;
+    }
+
+    if (timePattern.test(input.value)) {
+        validationMessage.textContent = '✓ Корректный формат';
+        validationMessage.style.color = '#28a745';
+        input.classList.remove('input-error');
+        input.classList.add('input-success');
+        return true;
+    } else {
+        validationMessage.textContent = 'Неверный формат. Используйте ЧЧ:MM (например, 14:30)';
+        validationMessage.style.color = '#dc3545';
+        input.classList.remove('input-success');
+        input.classList.add('input-error');
+        return false;
+    }
+}
+
+// Form validation and submission
+function setupRealTimeValidation() {
+    document.getElementById('subject').addEventListener('blur', function(e) {
+        validateSubject(e.target.value);
+    });
+
+    document.getElementById('date').addEventListener('change', function(e) {
+        validateDate(e.target.value);
+    });
+
+    document.getElementById('service').addEventListener('change', function(e) {
+        validateService(e.target.value);
+    });
+
+    document.getElementById('timeInput').addEventListener('input', function(e) {
+        validateTimeFormat(e.target);
+    });
+
+    document.getElementById('editTimeInput').addEventListener('input', function(e) {
+        validateTimeFormat(e.target, 'editTimeValidationMessage');
+    });
+}
+
+function validateSubject(value) {
+    const subjectGroup = document.getElementById('subject').closest('.form-group');
+    const input = document.getElementById('subject');
+
+    if (!value.trim()) {
+        showError(subjectGroup, 'Пожалуйста, укажите предмет');
+        input.classList.add('input-error');
+        return false;
+    }
+
+    if (value.length < 2) {
+        showError(subjectGroup, 'Название предмета слишком короткое');
+        input.classList.add('input-error');
+        return false;
+    }
+
+    clearError(subjectGroup);
+    input.classList.remove('input-error');
+    input.classList.add('input-success');
+    return true;
+}
+
+function validateDate(dateString) {
+    const dateGroup = document.getElementById('date').closest('.form-group');
+    const input = document.getElementById('date');
+
+    if (!dateString) {
+        clearError(dateGroup);
+        input.classList.remove('input-error');
+        return false;
+    }
+
+    const selectedDate = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+        showError(dateGroup, 'Нельзя выбрать прошедшую дату');
+        input.classList.add('input-error');
+        return false;
+    }
+
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 30);
+
+    if (selectedDate > maxDate) {
+        showError(dateGroup, 'Запись доступна только на 30 дней вперед');
+        input.classList.add('input-error');
+        return false;
+    }
+
+    clearError(dateGroup);
+    input.classList.remove('input-error');
+    input.classList.add('input-success');
+    return true;
+}
+
+function validateService(value) {
+    const serviceGroup = document.getElementById('service').closest('.form-group');
+    const input = document.getElementById('service');
+
+    if (!value) {
+        showError(serviceGroup, 'Пожалуйста, выберите тип услуги');
+        input.classList.add('input-error');
+        return false;
+    }
+
+    clearError(serviceGroup);
+    input.classList.remove('input-error');
+    input.classList.add('input-success');
+    return true;
+}
+
+function showError(formGroup, message) {
+    clearError(formGroup);
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'validation-error';
+    errorDiv.textContent = message;
+    formGroup.appendChild(errorDiv);
+}
+
+function clearError(formGroup) {
+    const errorElement = formGroup.querySelector('.validation-error');
+    if (errorElement) {
+        errorElement.remove();
+    }
+}
+
+document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const isSubjectValid = validateSubject(document.getElementById('subject').value);
+    const isDateValid = validateDate(document.getElementById('date').value);
+    const isServiceValid = validateService(document.getElementById('service').value);
+    const isTimeValid = validateTimeFormat(document.getElementById('timeInput'));
+
+    if (!isSubjectValid || !isDateValid || !isServiceValid || !isTimeValid) {
+        tg.showAlert("Пожалуйста, заполните все обязательные поля корректно");
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Проверка...';
+
+    const formData = {
+        subject: document.getElementById('subject').value,
+        service: document.getElementById('service').value,
+        date: document.getElementById('date').value,
+        time: document.getElementById('timeInput').value,
+        comment: document.getElementById('comment').value
+    };
+
+    try {
+        // Валидация времени на сервере
+        const timeValidationResponse = await fetch('/api/validate-time', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                time: formData.time,
+                date: formData.date
+            })
+        });
+
+        const timeValidationResult = await timeValidationResponse.json();
+        if (!timeValidationResult.valid) {
+            throw new Error(timeValidationResult.error);
+        }
+
+        submitBtn.textContent = 'Отправка...';
+
+        const userData = getUserData();
+
+        const response = await fetch('/api/book', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user: userData,
+                booking: formData
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            tg.showPopup({
+                title: "✅ Успешно!",
+                message: "Вы успешно записались на услугу! Проверьте Telegram для подтверждения.",
+                buttons: [{type: "ok"}]
+            });
+            closeModal();
+        } else {
+            throw new Error(result.error || "Ошибка при записи");
+        }
+
+    } catch (error) {
+        tg.showAlert("Ошибка при записи: " + error.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Записаться';
+    }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    setupRealTimeValidation();
+
+    // Add backdrop click handlers
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+    backdrop.addEventListener('click', function(e) {
+        if (e.target === this) {
+            const modal = this.closest('.modal');
+            modal.classList.remove('show');
+            isModalOpen = false;
+            document.body.style.overflow = '';
+        }
+    });
+});
+
+    // Edit form handler
+    document.getElementById('editForm').addEventListener('submit', updateBooking);
+
+    if (tg && tg.ready) tg.ready();
+});
+
+function confirmCancelBooking(bookingId) {
+    pendingCancelId = bookingId;
+    tg.showPopup({
+        title: "❌ Отменить запись?",
+        message: "Вы уверены, что хотите отменить эту запись?",
+        buttons: [
+            {id: "confirm_cancel", type: "destructive", text: "Да, отменить"},
+            {type: "cancel"}
+        ]
+    });
+}
+
+function triggerCancelFromEdit() {
+    const id = document.getElementById('editBookingId').value;
+    confirmCancelBooking(Number(id));
+}
+</script>
+</body>
+</html>
