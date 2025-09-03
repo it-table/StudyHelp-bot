@@ -450,6 +450,12 @@ async function cancelBookingDirect(bookingId, userId) {
         console.log('Cancel response:', result);
 
         if (result.status === 'success') {
+            // Отправляем уведомление пользователю
+            send_telegram_message(
+                userId,
+                "❌ Ваша запись была отменена.\n\nЕсли это произошло по ошибке, свяжитесь с администратором."
+            );
+            
             tg.showPopup({
                 title: "✅ Отменено!",
                 message: result.message,
@@ -467,7 +473,6 @@ async function cancelBookingDirect(bookingId, userId) {
         tg.showAlert("Ошибка при отмене: " + error.message);
     }
 }
-
 function getUserData() {
     if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) {
         tg.showAlert("Ошибка авторизации. Перезайдите в бота.");
