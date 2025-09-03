@@ -37,22 +37,13 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS bookings (
-            id SERIAL PRIMARY KEY,
-            user_id BIGINT NOT NULL,
-            first_name TEXT,
-            last_name TEXT,
-            username TEXT,
-            subject TEXT NOT NULL,
-            service TEXT NOT NULL,
-            date TEXT NOT NULL,
-            time TEXT NOT NULL,
-            comment TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
+    """
+    SELECT id, name as subject, service, date, time, comment, created_at
+    FROM bookings WHERE user_id = %s
+    ORDER BY date DESC, time DESC
+    """,
+    (user_id,),
+)
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON bookings (user_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_date_time ON bookings (date, time)")
     conn.commit()
