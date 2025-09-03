@@ -1,213 +1,147 @@
 import os
+from flask import Flask, request, jsonify, render_template
 import psycopg2
-from flask import Flask, request, jsonify, send_from_directory
-from datetime import datetime, timedelta
-import requests
+from datetime import datetime
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "your_bot_token")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "your_admin_chat_id")
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-
+# Функция для получения подключения к PostgreSQL
 def get_db_connection():
-    if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL не задан. Railway требует PostgreSQL!")
-
-    if DATABASE_URL.startswith("postgres://"):
-        database_url = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    else:
-        database_url = DATABASE_URL
-
-    if "sslmode=" not in database_url:
-        sep = "&" if "?" in database_url else "?"
-        database_url = f"{database_url}{sep}sslmode=require"
-
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        raise Exception("DATABASE_URL environment variable is not set")
+    
     return psycopg2.connect(database_url)
 
+# Маршрут для главной страницы
+@app.route('/')
+def home():
+    return render_template('index.html')
 
-
-def init_db():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    if not DATABASE_URL:  # SQLite
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS bookings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT NOT NULL,
-                time TEXT NOT NULL,
-                name TEXT NOT NULL,
-                service TEXT NOT NULL,
-                comment TEXT,
-                user_id TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-    else:  # PostgreSQL (Supabase)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS bookings (
-                id SERIAL PRIMARY KEY,
-                date TEXT NOT NULL,
-                time TEXT NOT NULL,
-                name TEXT NOT NULL,
-                service TEXT NOT NULL,
-                comment TEXT,
-                user_id TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-    conn.commit()
-    conn.close()
-
-
-init_db()
-
-
-# --- Helpers ---
-def send_telegram_message(chat_id, text):
-    """Отправка сообщения в Telegram"""
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    try:
-        r = requests.post(url, json={"chat_id": chat_id, "text": text})
-        return r.json()
-    except Exception as e:
-        print("Telegram error:", e)
-        return None
-
-
-def is_time_occupied(date, time, exclude_booking_id=None):
-    """Проверяем, занято ли время"""
-    conn = get_db_connection()
-    cur = conn.cursor()
-    if exclude_booking_id:
-        cur.execute("SELECT id FROM bookings WHERE date=%s AND time=%s AND id!=%s",
-                    (date, time, exclude_booking_id))
-    else:
-        cur.execute("SELECT id FROM bookings WHERE date=%s AND time=%s", (date, time))
-    exists = cur.fetchone()
-    conn.close()
-    return bool(exists)
-
-
-# --- API ---
-@app.route("/api/bookings", methods=["POST"])
+# Маршрут для создания бронирования
+@app.route('/api/bookings', methods=['POST'])
 def create_booking():
-    data = request.json
-    date, time, name, service, comment, user_id = (
-        data.get("date"), data.get("time"),
-        data.get("name"), data.get("service"),
-        data.get("comment", ""), data.get("user_id")
-    )
-
-    if not all([date, time, name, service, user_id]):
-        return jsonify({"error": "Missing fields"}), 400
-
-    # validate date
-    selected_date = datetime.strptime(date, "%Y-%m-%d").date()
-    today, max_date = datetime.today().date(), datetime.today().date() + timedelta(days=30)
-    if selected_date < today or selected_date > max_date:
-        return jsonify({"error": "Invalid date"}), 400
-
-    if is_time_occupied(date, time):
-        return jsonify({"error": "Time slot already booked"}), 400
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO bookings (date,time,name,service,comment,user_id) VALUES (%s,%s,%s,%s,%s,%s)",
-        (date, time, name, service, comment, user_id)
-    )
-    conn.commit()
-    booking_id = None
-    if not DATABASE_URL:  # SQLite
-        booking_id = cur.lastrowid
-    conn.close()
-
-    msg = f"Новая запись:\nДата: {date}\nВремя: {time}\nИмя: {name}\nУслуга: {service}\nКомментарий: {comment}"
-    send_telegram_message(ADMIN_CHAT_ID, msg)
-
-    return jsonify({"success": True, "booking_id": booking_id})
-
-
-@app.route("/api/bookings/<user_id>", methods=["GET"])
-def get_bookings(user_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT id,date,time,name,service,comment FROM bookings WHERE user_id=%s ORDER BY date,time", (user_id,))
-    rows = cur.fetchall()
-    conn.close()
-
-    # Обрабатываем по типу результата (SQLite vs PostgreSQL)
-    if DATABASE_URL:
-        keys = ["id", "date", "time", "name", "service", "comment"]
-        result = [dict(zip(keys, row)) for row in rows]
-    else:
-        result = [dict(r) for r in rows]
-
-    return jsonify(result)
-
-
-@app.route("/api/update-booking", methods=["POST"])
-def update_booking():
-    data = request.json
-    booking_id = data.get("id")
-    if not booking_id:
-        return jsonify({"error": "Booking ID required"}), 400
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT date,time,name,service,comment FROM bookings WHERE id=%s", (booking_id,))
-    row = cur.fetchone()
-    if not row:
+    try:
+        data = request.get_json()
+        
+        # Валидация обязательных полей
+        required_fields = ['date', 'time', 'name', 'service', 'user_id']
+        for field in required_fields:
+            if field not in data or not data[field].strip():
+                return jsonify({'error': f'Поле {field} обязательно'}), 400
+        
+        # Подключение к БД и вставка данных
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            INSERT INTO bookings (date, time, name, service, comment, user_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, created_at
+        """, (
+            data['date'].strip(),
+            data['time'].strip(),
+            data['name'].strip(),
+            data['service'].strip(),
+            data.get('comment', '').strip(),
+            data['user_id'].strip()
+        ))
+        
+        result = cur.fetchone()
+        conn.commit()
+        
+        cur.close()
         conn.close()
-        return jsonify({"error": "Booking not found"}), 404
+        
+        return jsonify({
+            'message': 'Бронирование успешно создано',
+            'booking_id': result[0],
+            'created_at': result[1].isoformat() if result[1] else None
+        }), 201
+        
+    except Exception as e:
+        print(f"Error creating booking: {e}")
+        return jsonify({'error': 'Ошибка при создании бронирования'}), 500
 
-    if DATABASE_URL:
-        current_date, current_time, current_name, current_service, current_comment = row
-    else:
-        current_date, current_time, current_name, current_service, current_comment = row
-
-    new_date = data.get("date", current_date)
-    new_time = data.get("time", current_time)
-    new_name = data.get("name", current_name)
-    new_service = data.get("service", current_service)
-    new_comment = data.get("comment", current_comment)
-
-    if is_time_occupied(new_date, new_time, exclude_booking_id=booking_id):
+# Маршрут для получения бронирований пользователя
+@app.route('/api/bookings/<user_id>', methods=['GET'])
+def get_user_bookings(user_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT id, date, time, name, service, comment, created_at
+            FROM bookings 
+            WHERE user_id = %s 
+            ORDER BY created_at DESC
+        """, (user_id,))
+        
+        bookings = []
+        for row in cur.fetchall():
+            bookings.append({
+                'id': row[0],
+                'date': row[1],
+                'time': row[2],
+                'name': row[3],
+                'service': row[4],
+                'comment': row[5],
+                'created_at': row[6].isoformat() if row[6] else None
+            })
+        
+        cur.close()
         conn.close()
-        return jsonify({"error": "Time slot already booked"}), 400
+        
+        return jsonify({'bookings': bookings})
+        
+    except Exception as e:
+        print(f"Error fetching bookings: {e}")
+        return jsonify({'error': 'Ошибка при получении бронирований'}), 500
 
-    cur.execute("UPDATE bookings SET date=%s,time=%s,name=%s,service=%s,comment=%s WHERE id=%s",
-                (new_date, new_time, new_name, new_service, new_comment, booking_id))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
+# Маршрут для удаления бронирования
+@app.route('/api/bookings/<int:booking_id>', methods=['DELETE'])
+def delete_booking(booking_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("DELETE FROM bookings WHERE id = %s", (booking_id,))
+        
+        if cur.rowcount == 0:
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'Бронирование не найдено'}), 404
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'message': 'Бронирование успешно удалено'})
+        
+    except Exception as e:
+        print(f"Error deleting booking: {e}")
+        return jsonify({'error': 'Ошибка при удалении бронирования'}), 500
 
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    try:
+        conn = get_db_connection()
+        conn.close()
+        return jsonify({'status': 'healthy', 'database': 'connected'})
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'database': 'disconnected', 'error': str(e)}), 500
 
-@app.route("/api/cancel-booking", methods=["POST"])
-def cancel_booking():
-    data = request.json
-    booking_id = data.get("id")
-    if not booking_id:
-        return jsonify({"error": "Booking ID required"}), 400
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM bookings WHERE id=%s", (booking_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
+# Обработка ошибок
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Ресурс не найден'}), 404
 
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
 
-# Serve static files
-@app.route("/")
-def index():
-    return send_from_directory(".", "index.html")
-
-@app.route("/<path:path>")
-def serve_static(path):
-    return send_from_directory(".", path)
-
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+if __name__ == '__main__':
+    # Получаем порт из переменных окружения (для Railway)
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
