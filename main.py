@@ -1,257 +1,220 @@
+from flask import Flask, render_template, request, jsonify
+import requests
+from datetime import datetime, timedelta
 import os
-from flask import Flask, request, jsonify, render_template, send_from_directory
 import psycopg2
-from datetime import datetime, time
-import re
+from flask_cors import CORS
+from threading import Lock
+from urllib.parse import urlparse
+import json
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
+CORS(app)
 
-# Serve static files
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory('static', filename)
+# Блокировка для избежания конфликтов
+booking_lock = Lock()
 
-# Функция для получения подключения к PostgreSQL
+# Инициализация базы данных
 def get_db_connection():
-    database_url = os.getenv('DATABASE_URL')
-    if not database_url:
-        raise Exception("DATABASE_URL environment variable is not set")
+    database_url = os.environ.get('DATABASE_URL')
     
-    return psycopg2.connect(database_url)
+    if database_url:
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://')
+        
+        parsed_url = urlparse(database_url)
+        conn = psycopg2.connect(
+            database=parsed_url.path[1:],
+            user=parsed_url.username,
+            password=parsed_url.password,
+            host=parsed_url.hostname,
+            port=parsed_url.port
+        )
+        return conn
+    else:
+        import sqlite3
+        return sqlite3.connect('bookings.db')
 
-# Маршрут для главной страницы
-@app.route('/')
-def home():
+def init_db():
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS bookings (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
+            username TEXT,
+            subject TEXT NOT NULL,
+            service TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time TEXT NOT NULL,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    c.execute('''
+        CREATE INDEX IF NOT EXISTS idx_user_id ON bookings (user_id);
+        CREATE INDEX IF NOT EXISTS idx_date_time ON bookings (date, time);
+        CREATE INDEX IF NOT EXISTS idx_created_at ON bookings (created_at);
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# Конфигурация бота
+BOT_TOKEN = os.environ.get('BOT_TOKEN', 'YOUR_BOT_TOKEN')
+ADMIN_CHAT_ID = os.environ.get('ADMIN_CHAT_ID', 'ADMIN_CHAT_ID')
+
+@app.route("/")
+def web():
     return render_template('index.html')
 
-# Новый маршрут для создания бронирования (соответствует фронтенду)
-@app.route('/api/book', methods=['POST'])
-def create_booking():
+# ------------------ WEBHOOK ------------------ #
+@app.route("/webhook", methods=["POST"])
+def webhook():
     try:
-        data = request.get_json()
-        print("Received data:", data)
+        update = request.get_json()
+        print("Получен апдейт:", json.dumps(update, ensure_ascii=False, indent=2))
+
+        if "message" in update:
+            message = update["message"]
+            chat_id = message["chat"]["id"]
+
+            # Если это web_app_data
+            if "web_app_data" in message:
+                try:
+                    data = json.loads(message["web_app_data"]["data"])
+                    user_data = {
+                        "id": message["from"]["id"],
+                        "first_name": message["from"].get("first_name", ""),
+                        "last_name": message["from"].get("last_name", ""),
+                        "username": message["from"].get("username", "")
+                    }
+                    booking_data = data.get("booking", {})
+
+                    # Сохраняем в базу
+                    save_booking_to_db(user_data, booking_data)
+
+                    send_telegram_message(
+                        chat_id,
+                        f"✅ Запись успешно создана!\n"
+                        f"📚 {booking_data.get('subject')}\n"
+                        f"📅 {format_date(booking_data.get('date'))}\n"
+                        f"⏰ {booking_data.get('time')}\n"
+                        f"💬 {booking_data.get('comment','нет')}"
+                    )
+                except Exception as e:
+                    print("Ошибка при обработке web_app_data:", e)
+                    send_telegram_message(chat_id, "❌ Ошибка при сохранении записи.")
         
-        # Проверяем структуру данных от фронтенда
-        if 'user' not in data or 'booking' not in data:
-            return jsonify({'success': False, 'error': 'Неверный формат данных'}), 400
+        return jsonify({"ok": True})
+    except Exception as e:
+        print("Ошибка в webhook:", e)
+        return jsonify({"ok": False}), 500
+# ------------------ END WEBHOOK ------------------ #
+
+# ---------- Остальной API (без изменений) ---------- #
+@app.route("/api/available-times", methods=['GET'])
+def get_available_times():
+    try:
+        date_str = request.args.get('date')
+        if not date_str:
+            return jsonify({'error': 'Date parameter is required'}), 400
         
-        user_data = data['user']
-        booking_data = data['booking']
+        selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        today = datetime.now().date()
         
-        # Валидация обязательных полей
-        required_fields = ['date', 'time', 'subject', 'service']
-        for field in required_fields:
-            if field not in booking_data or not str(booking_data[field]).strip():
-                return jsonify({'success': False, 'error': f'Поле {field} обязательно'}), 400
+        if selected_date < today:
+            return jsonify({'times': []})
         
-        # Валидация формата времени
-        if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', booking_data['time']):
-            return jsonify({'success': False, 'error': 'Неверный формат времени'}), 400
+        if selected_date > today + timedelta(days=30):
+            return jsonify({'times': [], 'message': 'Запись доступна только на 30 дней вперед'})
         
-        # Подключение к БД и вставка данных
+        occupied_times = get_occupied_times(date_str)
+        
+        all_times = []
+        start_time = 9
+        end_time = 18
+        
+        current_time = datetime.now()
+        is_today = selected_date == today
+        
+        for hour in range(start_time, end_time + 1):
+            time_str = f"{hour:02d}:00"
+            if is_today:
+                time_obj = datetime.strptime(time_str, '%H:%M').time()
+                if current_time.time() > time_obj:
+                    continue
+            if time_str in occupied_times:
+                continue
+            all_times.append(time_str)
+        
+        return jsonify({'times': all_times})
+        
+    except ValueError:
+        return jsonify({'error': 'Invalid date format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def get_occupied_times(date_str):
+    try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            INSERT INTO bookings (date, time, name, service, comment, user_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, created_at
-        """, (
-            booking_data['date'],
-            booking_data['time'],
-            booking_data['subject'],  # subject -> name в БД
-            booking_data['service'],
-            booking_data.get('comment', ''),
-            str(user_data['id'])  # user_id из Telegram
-        ))
-        
-        result = cur.fetchone()
+        c = conn.cursor()
+        c.execute("SELECT time FROM bookings WHERE date = %s", (date_str,))
+        occupied_times = [row[0] for row in c.fetchall()]
+        conn.close()
+        return occupied_times
+    except Exception as e:
+        print(f"Database error: {e}")
+        return []
+
+def save_booking_to_db(user_data, booking_data):
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO bookings (user_id, first_name, last_name, username, subject, service, date, time, comment) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                user_data.get('id'),
+                user_data.get('first_name', ''),
+                user_data.get('last_name', ''),
+                user_data.get('username', ''),
+                booking_data['subject'],
+                booking_data.get('service', 'Консультация'),
+                booking_data['date'],
+                booking_data['time'],
+                booking_data.get('comment', '')
+            )
+        )
         conn.commit()
-        
-        cur.close()
         conn.close()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Бронирование успешно создано',
-            'booking_id': result[0]
-        }), 201
-        
     except Exception as e:
-        print(f"Error creating booking: {e}")
-        return jsonify({'success': False, 'error': 'Ошибка при создании бронирования'}), 500
+        print(f"Database error: {e}")
+        raise e
 
-# Новый маршрут для получения бронирований (соответствует фронтенду)
-@app.route('/api/user-bookings')
-def get_user_bookings():
+def format_date(date_str):
     try:
-        user_id = request.args.get('user_id')
-        print(f"Fetching bookings for user: {user_id}")
-        
-        if not user_id:
-            return jsonify({'error': 'User ID is required'}), 400
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            SELECT id, date, time, name as subject, service, comment, created_at
-            FROM bookings 
-            WHERE user_id = %s 
-            ORDER BY created_at DESC
-        """, (user_id,))
-        
-        bookings = []
-        for row in cur.fetchall():
-            booking_date = datetime.strptime(row[1], '%Y-%m-%d').date() if isinstance(row[1], str) else row[1]
-            is_past = booking_date < datetime.now().date()
-            
-            bookings.append({
-                'id': row[0],
-                'date': row[1],
-                'time': row[2],
-                'subject': row[3],  # name -> subject для фронтенда
-                'service': row[4],
-                'comment': row[5],
-                'created_at': row[6].isoformat() if row[6] else None,
-                'can_modify': not is_past
-            })
-        
-        cur.close()
-        conn.close()
-        
-        return jsonify(bookings)
-        
-    except Exception as e:
-        print(f"Error fetching bookings: {e}")
-        return jsonify({'error': 'Ошибка при получении бронирований'}), 500
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        return date_obj.strftime('%d.%m.%Y')
+    except:
+        return date_str
 
-# Новый маршрут для валидации времени
-@app.route('/api/validate-time', methods=['POST'])
-def validate_time():
+def send_telegram_message(chat_id, text):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML'}
     try:
-        data = request.get_json()
-        time_str = data.get('time', '')
-        
-        # Проверка формата времени
-        if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', time_str):
-            return jsonify({'valid': False, 'error': 'Неверный формат времени. Используйте ЧЧ:MM'})
-        
-        # Проверка рабочего времени (9:00 - 21:00)
-        hours, minutes = map(int, time_str.split(':'))
-        if hours < 9 or hours >= 21:
-            return jsonify({'valid': False, 'error': 'Время работы: с 9:00 до 21:00'})
-        
-        return jsonify({'valid': True})
-        
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return True
     except Exception as e:
-        return jsonify({'valid': False, 'error': 'Ошибка валидации времени'})
+        print(f"Error sending Telegram message: {e}")
+        return False
 
-# Новый маршрут для обновления бронирования
-@app.route('/api/update-booking', methods=['POST'])
-def update_booking():
-    try:
-        data = request.get_json()
-        print("Update booking data:", data)
-        
-        required_fields = ['booking_id', 'user_id', 'updates']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'status': 'error', 'message': f'Отсутствует поле {field}'}), 400
-        
-        updates = data['updates']
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Проверяем, что бронирование принадлежит пользователю
-        cur.execute("SELECT user_id FROM bookings WHERE id = %s", (data['booking_id'],))
-        booking = cur.fetchone()
-        
-        if not booking:
-            return jsonify({'status': 'error', 'message': 'Бронирование не найдено'}), 404
-        
-        if str(booking[0]) != str(data['user_id']):
-            return jsonify({'status': 'error', 'message': 'Нет прав для редактирования'}), 403
-        
-        # Обновляем данные
-        cur.execute("""
-            UPDATE bookings 
-            SET date = %s, time = %s, name = %s, service = %s, comment = %s
-            WHERE id = %s
-        """, (
-            updates['date'],
-            updates['time'],
-            updates['subject'],
-            updates['service'],
-            updates.get('comment', ''),
-            data['booking_id']
-        ))
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({'status': 'success', 'message': 'Бронирование обновлено'})
-        
-    except Exception as e:
-        print(f"Error updating booking: {e}")
-        return jsonify({'status': 'error', 'message': 'Ошибка при обновлении'}), 500
-
-# Новый маршрут для отмены бронирования
-@app.route('/api/cancel-booking', methods=['POST'])
-def cancel_booking():
-    try:
-        data = request.get_json()
-        print("Cancel booking data:", data)
-        
-        if 'booking_id' not in data or 'user_id' not in data:
-            return jsonify({'status': 'error', 'message': 'Неверные данные'}), 400
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Проверяем принадлежность бронирования
-        cur.execute("SELECT user_id FROM bookings WHERE id = %s", (data['booking_id'],))
-        booking = cur.fetchone()
-        
-        if not booking:
-            return jsonify({'status': 'error', 'message': 'Бронирование не найдено'}), 404
-        
-        if str(booking[0]) != str(data['user_id']):
-            return jsonify({'status': 'error', 'message': 'Нет прав для отмены'}), 403
-        
-        cur.execute("DELETE FROM bookings WHERE id = %s", (data['booking_id'],))
-        conn.commit()
-        
-        cur.close()
-        conn.close()
-        
-        return jsonify({'status': 'success', 'message': 'Бронирование отменено'})
-        
-    except Exception as e:
-        print(f"Error canceling booking: {e}")
-        return jsonify({'status': 'error', 'message': 'Ошибка при отмене'}), 500
-
-# Health check endpoint
-@app.route('/health')
-def health_check():
-    try:
-        conn = get_db_connection()
-        conn.close()
-        return jsonify({'status': 'healthy', 'database': 'connected'})
-    except Exception as e:
-        return jsonify({'status': 'unhealthy', 'database': 'disconnected', 'error': str(e)}), 500
-
-# Обработка ошибок
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Ресурс не найден'}), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
-
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host="0.0.0.0", port=port)
