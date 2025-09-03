@@ -702,6 +702,20 @@ function triggerCancelFromEdit() {
     const id = document.getElementById('editBookingId').value;
     confirmCancelBooking(Number(id));
 }
+console.log('Script loaded!');
+
+// Проверка, что форма существует
+const form = document.getElementById('bookingForm');
+if (form) {
+    console.log('Form found!');
+    form.addEventListener('submit', function(e) {
+        console.log('Form submitted!');
+        e.preventDefault(); // Важно!
+        // ... ваш код обработки
+    });
+} else {
+    console.log('Form not found!');
+}
 </script>
 </body>
 </html>
