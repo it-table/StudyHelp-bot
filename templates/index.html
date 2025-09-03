@@ -337,7 +337,26 @@ async function loadUserBookings() {
             const bookingDate = new Date(booking.date);
             const formattedDate = bookingDate.toLocaleDateString('ru-RU');
             const isPast = !booking.can_modify;
-#html
+
+   html += `
+    <div class="booking-item ${isPast ? 'past' : ''}">
+        <div class="booking-header">
+            <div class="booking-subject">${booking.subject}</div>
+            <div class="booking-service">${booking.service}</div>
+        </div>
+        <div class="booking-details">
+            <div class="booking-date">📅 ${formattedDate} ⏰ ${booking.time}</div>
+            ${booking.comment ? `<div class="booking-comment">💬 ${booking.comment}</div>` : ''}
+            <div class="booking-created">🕐 Создано: ${new Date(booking.created_at).toLocaleString('ru-RU')}</div>
+        </div>
+        ${!isPast ? `
+        <div class="booking-actions">
+            <button class="edit-btn" onclick="event.stopPropagation(); openEditModal(${booking.id}); return false;">✏️ Редактировать</button>
+            <button class="cancel-btn" onclick="event.stopPropagation(); confirmCancelBooking(${booking.id}); return false;">❌ Отменить</button>
+        </div>
+        ` : ''}
+    </div>
+`;
         });
 
         container.innerHTML = html;
@@ -715,23 +734,6 @@ if (form) {
 } else {
     console.log('Form not found!');
 }
-document.getElementById('historyModal').addEventListener('click', function(e) {
-    if (e.target.classList.contains('edit-btn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        const bookingId = e.target.getAttribute('data-booking-id');
-        if (bookingId) openEditModal(parseInt(bookingId));
-        return false;
-    }
-    
-    if (e.target.classList.contains('cancel-btn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        const bookingId = e.target.getAttribute('data-booking-id');
-        if (bookingId) confirmCancelBooking(parseInt(bookingId));
-        return false;
-    }
-});
 </script>
 </body>
 </html>
