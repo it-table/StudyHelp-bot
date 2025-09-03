@@ -486,6 +486,18 @@ def cancel_booking():
 
             send_telegram_message(ADMIN_CHAT_ID, admin_message)
 
+        # Отправляем уведомление пользователю об отмене
+        user_message = f"""
+❌ Ваша запись отменена
+
+📚 {booking[0]}
+📅 {booking[2]} ⏰ {booking[3]}
+
+Если это произошло по ошибке, свяжитесь с администратором.
+""".strip()
+
+        send_telegram_message(user_id, user_message)
+
         conn.close()
         return jsonify({"status": "success", "message": "Запись успешно отменена"})
 
@@ -493,29 +505,18 @@ def cancel_booking():
         print(f"Error canceling booking: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
-@app.route("/api/send-message", methods=["POST"])
-def api_send_message():
-    try:
-        data = request.json
-        chat_id = data.get("chat_id")
-        text = data.get("text")
-        
-        if not chat_id or not text:
-            return jsonify({"status": "error", "message": "Chat ID and text required"}), 400
-            
-        send_telegram_message(chat_id, text)
-        return jsonify({"status": "success"})
-        
-    except Exception as e:
-        print(f"Error sending message: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
 # --- HELPERS ---
 def send_telegram_message(chat_id, text):
+    if not BOT_TOKEN:
+        print("BOT_TOKEN not set, skipping message sending")
+        return
+        
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
     try:
-        requests.post(url, json=payload, timeout=5)
+        response = requests.post(url, json=payload, timeout=5)
+        if response.status_code != 200:
+            print(f"Telegram API error: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"Telegram send error: {e}")
 
