@@ -587,50 +587,25 @@ function clearError(formGroup) {
 
 document.getElementById('bookingForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-
-    const isSubjectValid = validateSubject(document.getElementById('subject').value);
-    const isDateValid = validateDate(document.getElementById('date').value);
-    const isServiceValid = validateService(document.getElementById('service').value);
-    const isTimeValid = validateTimeFormat(document.getElementById('timeInput'));
-
-    if (!isSubjectValid || !isDateValid || !isServiceValid || !isTimeValid) {
-        tg.showAlert("Пожалуйста, заполните все обязательные поля корректно");
-        return;
-    }
+    console.log('Form submission started');
 
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Проверка...';
-
-    const formData = {
-        subject: document.getElementById('subject').value,
-        service: document.getElementById('service').value,
-        date: document.getElementById('date').value,
-        time: document.getElementById('timeInput').value,
-        comment: document.getElementById('comment').value
-    };
+    submitBtn.textContent = 'Отправка...';
 
     try {
-        // Валидация времени на сервере
-        const timeValidationResponse = await fetch('/api/validate-time', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                time: formData.time,
-                date: formData.date
-            })
-        });
+        const formData = {
+            subject: document.getElementById('subject').value,
+            service: document.getElementById('service').value,
+            date: document.getElementById('date').value,
+            time: document.getElementById('timeInput').value,
+            comment: document.getElementById('comment').value
+        };
 
-        const timeValidationResult = await timeValidationResponse.json();
-        if (!timeValidationResult.valid) {
-            throw new Error(timeValidationResult.error);
-        }
-
-        submitBtn.textContent = 'Отправка...';
+        console.log('Form data:', formData);
 
         const userData = getUserData();
+        console.log('User data:', userData);
 
         const response = await fetch('/api/book', {
             method: 'POST',
@@ -644,19 +619,24 @@ document.getElementById('bookingForm').addEventListener('submit', async function
         });
 
         const result = await response.json();
+        console.log('Server response:', result);
 
-        if (result.success) {
+        if (result.status === 'success') {
             tg.showPopup({
                 title: "✅ Успешно!",
-                message: "Вы успешно записались на услугу! Проверьте Telegram для подтверждения.",
+                message: "Вы успешно записались на услугу!",
                 buttons: [{type: "ok"}]
             });
             closeModal();
+            
+            // Очищаем форму
+            document.getElementById('bookingForm').reset();
         } else {
-            throw new Error(result.error || "Ошибка при записи");
+            throw new Error(result.message || "Ошибка при записи");
         }
 
     } catch (error) {
+        console.error('Booking error:', error);
         tg.showAlert("Ошибка при записи: " + error.message);
     } finally {
         submitBtn.disabled = false;
