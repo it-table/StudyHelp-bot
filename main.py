@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, url_for
 import requests
 from datetime import datetime, timedelta
 import os
@@ -7,7 +7,7 @@ from flask_cors import CORS
 from threading import Lock
 from urllib.parse import urlparse
 
-app = Flask(__name__, template_folder=".")
+app = Flask(__name__)
 CORS(app)
 
 # Блокировка для избежания конфликтов
