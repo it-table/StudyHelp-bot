@@ -493,6 +493,23 @@ def cancel_booking():
         print(f"Error canceling booking: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+@app.route("/api/send-message", methods=["POST"])
+def api_send_message():
+    try:
+        data = request.json
+        chat_id = data.get("chat_id")
+        text = data.get("text")
+        
+        if not chat_id or not text:
+            return jsonify({"status": "error", "message": "Chat ID and text required"}), 400
+            
+        send_telegram_message(chat_id, text)
+        return jsonify({"status": "success"})
+        
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 # --- HELPERS ---
 def send_telegram_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
