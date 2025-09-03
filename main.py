@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import psycopg2
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime, timedelta
@@ -7,32 +6,26 @@ import requests
 
 app = Flask(__name__)
 
-# --- Config ---
 BOT_TOKEN = os.getenv("BOT_TOKEN", "your_bot_token")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "your_admin_chat_id")
-DATABASE_URL = os.getenv("DATABASE_URL")  # Railway/Supabase передают в переменных окружения
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
-# --- DB connection ---
 def get_db_connection():
-    database_url = DATABASE_URL
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL не задан. Railway требует PostgreSQL!")
 
-    if not database_url:
-        # fallback на SQLite (локально без PostgreSQL)
-        conn = sqlite3.connect("bookings.db")
-        conn.row_factory = sqlite3.Row
-        return conn
+    if DATABASE_URL.startswith("postgres://"):
+        database_url = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    else:
+        database_url = DATABASE_URL
 
-    # Fix для старых URL (Heroku-style)
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-    # Гарантируем SSL (Supabase требует sslmode=require)
     if "sslmode=" not in database_url:
         sep = "&" if "?" in database_url else "?"
         database_url = f"{database_url}{sep}sslmode=require"
 
     return psycopg2.connect(database_url)
+
 
 
 def init_db():
