@@ -305,7 +305,8 @@ async function loadUserBookings() {
             throw new Error(data.error);
         }
 
-        userBookings = data;
+        // ИСПРАВЛЕНИЕ: берем массив bookings из ответа
+        userBookings = data.bookings || [];
 
         if (userBookings.length === 0) {
             container.innerHTML = `
@@ -332,6 +333,7 @@ async function loadUserBookings() {
                     <div class="booking-details">
                         <div class="booking-date">📅 ${formattedDate} ⏰ ${booking.time}</div>
                         ${booking.comment ? `<div class="booking-comment">💬 ${booking.comment}</div>` : ''}
+                        <div class="booking-created">🕐 Создано: ${new Date(booking.created_at).toLocaleString('ru-RU')}</div>
                     </div>
                     ${!isPast ? `
                     <div class="booking-actions">
@@ -346,10 +348,11 @@ async function loadUserBookings() {
         container.innerHTML = html;
 
     } catch (error) {
+        console.error('Load bookings error:', error);
         container.innerHTML = `<div class="error-message">Ошибка загрузки: ${error.message}</div>`;
     }
 }
-
+  
 async function updateBooking(e) {
     e.preventDefault();
 
