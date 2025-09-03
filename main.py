@@ -207,18 +207,44 @@ def book_service():
 
             save_booking_to_db(user_data, booking_data)
 
+        # Сообщение пользователю
         send_telegram_message(
             user_data["id"],
-            f"✅ Запись создана!\n📚 {booking_data['subject']}\n📅 {booking_data['date']} ⏰ {booking_data['time']}",
+            f"✅ Запись создана!\n📚 {booking_data['subject']}\n📅 {booking_data['date']} ⏰ {booking_data['time']}\n\nСпасибо за доверие! 😊",
         )
 
-        send_telegram_message(
-            ADMIN_CHAT_ID,
-            f"🎉 Новая запись!\n👤 {user_data.get('first_name','')} {user_data.get('last_name','')}\n📚 {booking_data['subject']} ⏰ {booking_data['time']}",
-        )
+        # УЛУЧШЕННОЕ сообщение админу
+        if ADMIN_CHAT_ID:
+            user_info = []
+            if user_data.get("first_name"):
+                user_info.append(f"👤 Имя: {user_data['first_name']}")
+            if user_data.get("last_name"):
+                user_info.append(f"📋 Фамилия: {user_data['last_name']}")
+            if user_data.get("username"):
+                user_info.append(f"🔖 Юзернейм: @{user_data['username']}")
+            if user_data.get("id"):
+                user_info.append(f"🆔 ID: {user_data['id']}")
+            
+            admin_message = f"""
+🎉 НОВАЯ ЗАПИСЬ!
 
-        return jsonify({"status": "success"})
+{' | '.join(user_info)}
+
+📚 Предмет: {booking_data['subject']}
+📦 Услуга: {booking_data.get('service', 'Консультация')}
+📅 Дата: {booking_data['date']}
+⏰ Время: {booking_data['time']}
+
+💬 Комментарий: {booking_data.get('comment', 'нет комментария')}
+
+🕐 Запись создана: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            """.strip()
+
+            send_telegram_message(ADMIN_CHAT_ID, admin_message)
+
+        return jsonify({"status": "success", "message": "Запись успешно создана"})
     except Exception as e:
+        print(f"Error in book_service: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -274,6 +300,7 @@ def get_user_bookings():
                 can_modify = booking_date >= today
             except:
                 can_modify = False
+                
             bookings.append(
                 {
                     "id": row[0],
@@ -281,14 +308,17 @@ def get_user_bookings():
                     "service": row[2],
                     "date": row[3],
                     "time": row[4],
-                    "comment": row[5],
-                    "created_at": str(row[6]),
+                    "comment": row[5] or "",
+                    "created_at": row[6].strftime("%Y-%m-%d %H:%M:%S") if row[6] else "",
                     "can_modify": can_modify,
                 }
             )
 
-        return jsonify({"bookings": bookings})
+        # ВАЖНО: возвращаем объект с массивом bookings
+        return jsonify({"bookings": bookings, "count": len(bookings)})
+        
     except Exception as e:
+        print(f"Error getting user bookings: {e}")
         return jsonify({"error": str(e)}), 500
 
 
