@@ -333,13 +333,16 @@ def update_booking():
         if not booking_id or not user_id:
             return jsonify({"status": "error", "message": "Booking ID and User ID required"}), 400
 
-        # Проверяем, существует ли запись и принадлежит ли пользователю
+        # Получаем старые данные записи
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT id FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
-        booking = c.fetchone()
+        c.execute("""
+            SELECT subject, service, date, time, comment, first_name, last_name, username 
+            FROM bookings WHERE id = %s AND user_id = %s
+        """, (booking_id, user_id))
+        old_booking = c.fetchone()
         
-        if not booking:
+        if not old_booking:
             conn.close()
             return jsonify({"status": "error", "message": "Запись не найдена или нет доступа"}), 404
 
@@ -382,6 +385,45 @@ def update_booking():
             c.execute(query, update_values)
             conn.commit()
 
+        # Отправляем уведомление админу об изменении
+        if ADMIN_CHAT_ID:
+            user_info = []
+            if old_booking[5]:  # first_name
+                user_info.append(f"👤 Имя: {old_booking[5]}")
+            if old_booking[6]:  # last_name
+                user_info.append(f"📋 Фамилия: {old_booking[6]}")
+            if old_booking[7]:  # username
+                user_info.append(f"🔖 Юзернейм: @{old_booking[7]}")
+            user_info.append(f"🆔 ID: {user_id}")
+
+            changes = []
+            if "subject" in updates and updates["subject"] != old_booking[0]:
+                changes.append(f"📚 Предмет: {old_booking[0]} → {updates['subject']}")
+            if "service" in updates and updates["service"] != old_booking[1]:
+                changes.append(f"📦 Услуга: {old_booking[1]} → {updates['service']}")
+            if "date" in updates and updates["date"] != old_booking[2]:
+                changes.append(f"📅 Дата: {old_booking[2]} → {updates['date']}")
+            if "time" in updates and updates["time"] != old_booking[3]:
+                changes.append(f"⏰ Время: {old_booking[3]} → {updates['time']}")
+            if "comment" in updates and updates["comment"] != old_booking[4]:
+                old_comment = old_booking[4] or "нет комментария"
+                new_comment = updates["comment"] or "нет комментария"
+                changes.append(f"💬 Комментарий: {old_comment} → {new_comment}")
+
+            if changes:
+                admin_message = f"""
+✏️ ЗАПИСЬ ОБНОВЛЕНА
+
+{' | '.join(user_info)}
+
+📋 Изменения:
+{chr(10).join(changes)}
+
+🕐 Обновлено: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                """.strip()
+
+                send_telegram_message(ADMIN_CHAT_ID, admin_message)
+
         conn.close()
         return jsonify({"status": "success", "message": "Запись успешно обновлена"})
 
@@ -402,8 +444,11 @@ def cancel_booking():
         conn = get_db_connection()
         c = conn.cursor()
         
-        # Проверяем, существует ли запись и принадлежит ли пользователю
-        c.execute("SELECT id, date, time FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
+        # Получаем данные записи перед удалением
+        c.execute("""
+            SELECT subject, service, date, time, comment, first_name, last_name, username 
+            FROM bookings WHERE id = %s AND user_id = %s
+        """, (booking_id, user_id))
         booking = c.fetchone()
         
         if not booking:
@@ -413,14 +458,40 @@ def cancel_booking():
         # Удаляем запись
         c.execute("DELETE FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
         conn.commit()
-        conn.close()
 
+        # Отправляем уведомление админу об отмене
+        if ADMIN_CHAT_ID:
+            user_info = []
+            if booking[5]:  # first_name
+                user_info.append(f"👤 Имя: {booking[5]}")
+            if booking[6]:  # last_name
+                user_info.append(f"📋 Фамилия: {booking[6]}")
+            if booking[7]:  # username
+                user_info.append(f"🔖 Юзернейм: @{booking[7]}")
+            user_info.append(f"🆔 ID: {user_id}")
+
+            admin_message = f"""
+❌ ЗАПИСЬ ОТМЕНЕНА
+
+{' | '.join(user_info)}
+
+📚 Предмет: {booking[0]}
+📦 Услуга: {booking[1]}
+📅 Дата: {booking[2]}
+⏰ Время: {booking[3]}
+💬 Комментарий: {booking[4] or 'нет комментария'}
+
+🕐 Отменено: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            """.strip()
+
+            send_telegram_message(ADMIN_CHAT_ID, admin_message)
+
+        conn.close()
         return jsonify({"status": "success", "message": "Запись успешно отменена"})
 
     except Exception as e:
         print(f"Error canceling booking: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # --- HELPERS ---
 def send_telegram_message(chat_id, text):
