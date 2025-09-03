@@ -125,6 +125,21 @@ def get_available_times():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# --- HELPERS ---
+def send_telegram_message(chat_id, text):
+    if not BOT_TOKEN:
+        print("BOT_TOKEN not set, skipping message sending")
+        return
+        
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    try:
+        response = requests.post(url, json=payload, timeout=5)
+        if response.status_code != 200:
+            print(f"Telegram API error: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"Telegram send error: {e}")
+
 
 def get_occupied_times(date_str):
     try:
@@ -505,20 +520,7 @@ def cancel_booking():
         print(f"Error canceling booking: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- HELPERS ---
-def send_telegram_message(chat_id, text):
-    if not BOT_TOKEN:
-        print("BOT_TOKEN not set, skipping message sending")
-        return
-        
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
-    try:
-        response = requests.post(url, json=payload, timeout=5)
-        if response.status_code != 200:
-            print(f"Telegram API error: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"Telegram send error: {e}")
+
 
 
 if __name__ == "__main__":
