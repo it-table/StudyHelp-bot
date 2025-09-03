@@ -734,6 +734,23 @@ if (form) {
 } else {
     console.log('Form not found!');
 }
+async function sendTelegramMessage(chatId, text) {
+    try {
+        const response = await fetch('/api/send-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: text
+            })
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error sending Telegram message:', error);
+    }
+}
 </script>
 </body>
 </html>
