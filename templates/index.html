@@ -337,26 +337,7 @@ async function loadUserBookings() {
             const bookingDate = new Date(booking.date);
             const formattedDate = bookingDate.toLocaleDateString('ru-RU');
             const isPast = !booking.can_modify;
-
-            html += `
-    <div class="booking-item ${isPast ? 'past' : ''}">
-        <div class="booking-header">
-            <div class="booking-subject">${booking.subject}</div>
-            <div class="booking-service">${booking.service}</div>
-        </div>
-        <div class="booking-details">
-            <div class="booking-date">📅 ${formattedDate} ⏰ ${booking.time}</div>
-            ${booking.comment ? `<div class="booking-comment">💬 ${booking.comment}</div>` : ''}
-            <div class="booking-created">🕐 Создано: ${new Date(booking.created_at).toLocaleString('ru-RU')}</div>
-        </div>
-        ${!isPast ? `
-        <div class="booking-actions">
-            <button class="edit-btn" data-booking-id="${booking.id}">✏️ Редактировать</button>
-            <button class="cancel-btn" data-booking-id="${booking.id}">❌ Отменить</button>
-        </div>
-        ` : ''}
-    </div>
-`;
+#html
         });
 
         container.innerHTML = html;
@@ -734,36 +715,22 @@ if (form) {
 } else {
     console.log('Form not found!');
 }
-// Обработчик для всех кнопок в модальном окне истории
 document.getElementById('historyModal').addEventListener('click', function(e) {
-    // Для кнопок редактирования
     if (e.target.classList.contains('edit-btn')) {
         e.preventDefault();
         e.stopPropagation();
         const bookingId = e.target.getAttribute('data-booking-id');
-        if (bookingId) {
-            console.log('Edit button clicked for booking:', bookingId);
-            openEditModal(parseInt(bookingId));
-        }
+        if (bookingId) openEditModal(parseInt(bookingId));
         return false;
     }
     
-    // Для кнопок отмены
     if (e.target.classList.contains('cancel-btn')) {
         e.preventDefault();
         e.stopPropagation();
         const bookingId = e.target.getAttribute('data-booking-id');
-        if (bookingId) {
-            console.log('Cancel button clicked for booking:', bookingId);
-            confirmCancelBooking(parseInt(bookingId));
-        }
+        if (bookingId) confirmCancelBooking(parseInt(bookingId));
         return false;
     }
-});
-
-// Также предотвращаем закрытие при клике на сами элементы записей
-document.querySelector('.modal-content').addEventListener('click', function(e) {
-    e.stopPropagation();
 });
 </script>
 </body>
