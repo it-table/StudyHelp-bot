@@ -324,12 +324,102 @@ def get_user_bookings():
 
 @app.route("/api/update-booking", methods=["POST"])
 def update_booking():
-    return jsonify({"status": "error", "message": "Not implemented"}), 501
+    try:
+        data = request.json
+        booking_id = data.get("booking_id")
+        user_id = data.get("user_id")
+        updates = data.get("updates", {})
 
+        if not booking_id or not user_id:
+            return jsonify({"status": "error", "message": "Booking ID and User ID required"}), 400
+
+        # Проверяем, существует ли запись и принадлежит ли пользователю
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT id FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
+        booking = c.fetchone()
+        
+        if not booking:
+            conn.close()
+            return jsonify({"status": "error", "message": "Запись не найдена или нет доступа"}), 404
+
+        # Проверяем, не занято ли новое время
+        if updates.get("date") and updates.get("time"):
+            if is_time_occupied(updates["date"], updates["time"], booking_id):
+                conn.close()
+                return jsonify({"status": "error", "message": "Это время уже занято"}), 400
+
+        # Обновляем запись
+        update_fields = []
+        update_values = []
+        
+        if "subject" in updates:
+            update_fields.append("subject = %s")
+            update_values.append(updates["subject"])
+        if "service" in updates:
+            update_fields.append("service = %s")
+            update_values.append(updates["service"])
+        if "date" in updates:
+            update_fields.append("date = %s")
+            update_values.append(updates["date"])
+        if "time" in updates:
+            update_fields.append("time = %s")
+            update_values.append(updates["time"])
+        if "comment" in updates:
+            update_fields.append("comment = %s")
+            update_values.append(updates["comment"])
+
+        if update_fields:
+            update_values.append(booking_id)
+            update_values.append(user_id)
+            
+            query = f"""
+                UPDATE bookings 
+                SET {', '.join(update_fields)} 
+                WHERE id = %s AND user_id = %s
+            """
+            
+            c.execute(query, update_values)
+            conn.commit()
+
+        conn.close()
+        return jsonify({"status": "success", "message": "Запись успешно обновлена"})
+
+    except Exception as e:
+        print(f"Error updating booking: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/api/cancel-booking", methods=["POST"])
 def cancel_booking():
-    return jsonify({"status": "error", "message": "Not implemented"}), 501
+    try:
+        data = request.json
+        booking_id = data.get("booking_id")
+        user_id = data.get("user_id")
+
+        if not booking_id or not user_id:
+            return jsonify({"status": "error", "message": "Booking ID and User ID required"}), 400
+
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Проверяем, существует ли запись и принадлежит ли пользователю
+        c.execute("SELECT id, date, time FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
+        booking = c.fetchone()
+        
+        if not booking:
+            conn.close()
+            return jsonify({"status": "error", "message": "Запись не найдена или нет доступа"}), 404
+
+        # Удаляем запись
+        c.execute("DELETE FROM bookings WHERE id = %s AND user_id = %s", (booking_id, user_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"status": "success", "message": "Запись успешно отменена"})
+
+    except Exception as e:
+        print(f"Error canceling booking: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # --- HELPERS ---
