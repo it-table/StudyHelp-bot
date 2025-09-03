@@ -351,8 +351,8 @@ async function loadUserBookings() {
         </div>
         ${!isPast ? `
         <div class="booking-actions">
-            <button class="edit-btn" onclick="event.stopPropagation(); openEditModal(${booking.id})">✏️ Редактировать</button>
-            <button class="cancel-btn" onclick="event.stopPropagation(); confirmCancelBooking(${booking.id})">❌ Отменить</button>
+            <button class="edit-btn" onclick="event.stopPropagation(); openEditModal(${booking.id}); return false;">✏️ Редактировать</button>
+            <button class="cancel-btn" onclick="event.stopPropagation(); confirmCancelBooking(${booking.id}); return false;">❌ Отменить</button>
         </div>
         ` : ''}
     </div>
