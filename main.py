@@ -33,36 +33,20 @@ def get_db_connection():
 
 
 # --- DB INIT ---
+# --- DB INIT ---
 def init_db():
-    conn = get_db_connection()
-    c = conn.cursor()
-    
-    # Создаем таблицу если её нет
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS bookings (
-            id SERIAL PRIMARY KEY,
-            user_id BIGINT NOT NULL,
-            first_name TEXT,
-            last_name TEXT,
-            username TEXT,
-            subject TEXT NOT NULL,
-            service TEXT NOT NULL,
-            date TEXT NOT NULL,
-            time TEXT NOT NULL,
-            comment TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Создаем индексы
-    c.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON bookings (user_id)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_date_time ON bookings (date, time)")
-    
-    conn.commit()
-    conn.close()
+    # Просто проверяем соединение с базой
+    try:
+        conn = get_db_connection()
+        conn.close()
+        print("Database connection successful")
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        raise
 
+# Уберите вызов init_db() если он вызывает проблемы
+# init_db()
 
-init_db()
 
 # --- CONFIG ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
