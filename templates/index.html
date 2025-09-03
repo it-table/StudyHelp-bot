@@ -734,12 +734,12 @@ if (form) {
 } else {
     console.log('Form not found!');
 }
-// Новые обработчики для кнопок
-document.addEventListener('click', function(e) {
+// Обработчик для всех кнопок в модальном окне истории
+document.getElementById('historyModal').addEventListener('click', function(e) {
     // Для кнопок редактирования
     if (e.target.classList.contains('edit-btn')) {
         e.preventDefault();
-        e.stopImmediatePropagation();
+        e.stopPropagation();
         const bookingId = e.target.getAttribute('data-booking-id');
         if (bookingId) {
             console.log('Edit button clicked for booking:', bookingId);
@@ -751,7 +751,7 @@ document.addEventListener('click', function(e) {
     // Для кнопок отмены
     if (e.target.classList.contains('cancel-btn')) {
         e.preventDefault();
-        e.stopImmediatePropagation();
+        e.stopPropagation();
         const bookingId = e.target.getAttribute('data-booking-id');
         if (bookingId) {
             console.log('Cancel button clicked for booking:', bookingId);
@@ -761,12 +761,10 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Отключаем всплытие для всего контейнера с записями
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.booking-item')) {
-        e.stopPropagation();
-    }
-}, true);
+// Также предотвращаем закрытие при клике на сами элементы записей
+document.querySelector('.modal-content').addEventListener('click', function(e) {
+    e.stopPropagation();
+});
 </script>
 </body>
 </html>
